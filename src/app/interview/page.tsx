@@ -4,7 +4,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from '@/lib/hooks/useSession';
+import { useVoiceServices } from '@/lib/hooks/useVoiceServices';
+import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { AudioPlayer } from '@/components/AudioPlayer';
 import type { AnswerEvaluation } from '@/lib/types';
+
+type InputMode = 'text' | 'voice';
 
 interface Question {
   id: number;
@@ -90,6 +95,7 @@ function EvaluationDisplay({ evaluation }: { evaluation: AnswerEvaluation }) {
 export default function InterviewPage() {
   const router = useRouter();
   const { uuid, ensureSession, getTimeRemaining } = useSession();
+  const { voiceEnabled, sttAvailable, ttsAvailable, isChecking: isCheckingVoice } = useVoiceServices();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const answerStartTimeRef = useRef<number>(0);
 
@@ -104,6 +110,8 @@ export default function InterviewPage() {
 
   const [answerText, setAnswerText] = useState('');
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [inputMode, setInputMode] = useState<InputMode>('text');
+  const [autoPlayTTS, setAutoPlayTTS] = useState(false);
 
   // Start or resume interview
   const initializeInterview = useCallback(async (sessionUuid: string) => {
@@ -213,6 +221,11 @@ export default function InterviewPage() {
       }));
     }
   }, [uuid, state.currentQuestion, answerText]);
+
+  // Handle voice transcription
+  const handleTranscription = useCallback((text: string) => {
+    setAnswerText(prev => prev ? `${prev} ${text}` : text);
+  }, []);
 
   // Finish interview early
   const finishInterview = useCallback(async () => {
@@ -397,36 +410,108 @@ export default function InterviewPage() {
 
         {/* Current Question */}
         <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">&#128172;</span>
-            <span className="text-sm text-gray-400">
-              {state.currentQuestion?.isFollowUp ? 'Follow-up Question' : 'Question'}
-            </span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">&#128172;</span>
+              <span className="text-sm text-gray-400">
+                {state.currentQuestion?.isFollowUp ? 'Follow-up Question' : 'Question'}
+              </span>
+            </div>
+            {/* TTS audio player */}
+            {ttsAvailable && uuid && state.currentQuestion && (
+              <AudioPlayer
+                text={state.currentQuestion.text}
+                sessionUuid={uuid}
+                autoPlay={autoPlayTTS}
+                disabled={state.status === 'evaluating'}
+              />
+            )}
           </div>
           <p className="text-lg text-white leading-relaxed">
             {state.currentQuestion?.text}
           </p>
         </div>
 
+        {/* Input Mode Toggle */}
+        {sttAvailable && (
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <button
+              onClick={() => setInputMode('text')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                inputMode === 'text'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              Text Input
+            </button>
+            <button
+              onClick={() => setInputMode('voice')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                inputMode === 'voice'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              Voice Input
+            </button>
+            {ttsAvailable && (
+              <label className="flex items-center gap-2 text-sm text-gray-400 ml-4">
+                <input
+                  type="checkbox"
+                  checked={autoPlayTTS}
+                  onChange={(e) => setAutoPlayTTS(e.target.checked)}
+                  className="rounded bg-gray-700 border-gray-600"
+                />
+                Auto-play questions
+              </label>
+            )}
+          </div>
+        )}
+
         {/* Answer Input */}
         <div className="mb-6">
-          <label className="block text-sm text-gray-400 mb-2">Your Answer</label>
-          <textarea
-            ref={textareaRef}
-            value={answerText}
-            onChange={(e) => setAnswerText(e.target.value)}
-            disabled={state.status === 'evaluating'}
-            placeholder="Type your answer here... Think about specific examples and outcomes."
-            className="w-full h-48 bg-gray-800 border border-gray-700 rounded-lg p-4 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-          />
-          <div className="flex justify-between mt-2">
-            <span className="text-xs text-gray-500">
-              {answerText.length} characters
-            </span>
-            <span className="text-xs text-gray-500">
-              Press Cmd+Enter to submit
-            </span>
-          </div>
+          {inputMode === 'voice' && sttAvailable && uuid ? (
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
+              <VoiceRecorder
+                onTranscription={handleTranscription}
+                sessionUuid={uuid}
+                questionId={state.currentQuestion?.id}
+                disabled={state.status === 'evaluating'}
+              />
+              {answerText && (
+                <div className="mt-6 p-4 bg-gray-900 rounded-lg">
+                  <label className="block text-sm text-gray-400 mb-2">Transcribed Text (editable)</label>
+                  <textarea
+                    value={answerText}
+                    onChange={(e) => setAnswerText(e.target.value)}
+                    disabled={state.status === 'evaluating'}
+                    className="w-full h-32 bg-transparent border-0 text-white placeholder-gray-500 resize-none focus:outline-none disabled:opacity-50"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <label className="block text-sm text-gray-400 mb-2">Your Answer</label>
+              <textarea
+                ref={textareaRef}
+                value={answerText}
+                onChange={(e) => setAnswerText(e.target.value)}
+                disabled={state.status === 'evaluating'}
+                placeholder="Type your answer here... Think about specific examples and outcomes."
+                className="w-full h-48 bg-gray-800 border border-gray-700 rounded-lg p-4 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+              />
+              <div className="flex justify-between mt-2">
+                <span className="text-xs text-gray-500">
+                  {answerText.length} characters
+                </span>
+                <span className="text-xs text-gray-500">
+                  Press Cmd+Enter to submit
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Submit Button */}
