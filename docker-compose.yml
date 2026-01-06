@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: mockview-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://mockview:mockview_dev@postgres:5432/mockview
+      - POSTGRES_HOST=postgres
+      - OLLAMA_HOST=http://ollama:11434
+      - WHISPER_HOST=http://whisper:8080
+      - TTS_HOST=http://tts:8081
+      - UPLOADS_DIR=/data/uploads
+      - AUDIO_DIR=/data/audio
+    volumes:
+      - uploads:/data/uploads
+      - audio:/data/audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      whisper:
+        condition: service_started
+      tts:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - mockview-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: mockview-postgres
+    environment:
+      - POSTGRES_USER=mockview
+      - POSTGRES_PASSWORD=mockview_dev
+      - POSTGRES_DB=mockview
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mockview -d mockview"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mockview-network
+
+  # Ollama LLM Server
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mockview-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=2
+    # For Apple Silicon Macs, uncomment the following:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - mockview-network
+
+  # Whisper STT Service (faster-whisper server)
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    container_name: mockview-whisper
+    ports:
+      - "8080:8080"
+    environment:
+      - WHISPER__MODEL=Systran/faster-whisper-large-v3
+      - WHISPER__DEVICE=cpu
+      - WHISPER__COMPUTE_TYPE=int8
+    volumes:
+      - whisper-models:/root/.cache/huggingface
+    restart: unless-stopped
+    networks:
+      - mockview-network
+
+  # TTS Service (Coqui TTS)
+  tts:
+    image: ghcr.io/coqui-ai/tts:latest
+    container_name: mockview-tts
+    ports:
+      - "8081:5002"
+    command: --model_name tts_models/en/ljspeech/tacotron2-DDC --use_cuda false
+    volumes:
+      - tts-models:/root/.local/share/tts
+    restart: unless-stopped
+    networks:
+      - mockview-network
+
+volumes:
+  pgdata:
+    driver: local
+  ollama-models:
+    driver: local
+  whisper-models:
+    driver: local
+  tts-models:
+    driver: local
+  uploads:
+    driver: local
+  audio:
+    driver: local
+
+networks:
+  mockview-network:
+    driver: bridge
