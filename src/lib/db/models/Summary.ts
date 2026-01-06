@@ -1,18 +1,16 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { getSequelize } from '../connection';
-import type { Verdict, CompetencyScore } from '../../types';
+import type { InterviewSummary } from '../../types';
+
+// Overall rating type
+type OverallRating = 'excellent' | 'good' | 'satisfactory' | 'needs_improvement';
 
 // Summary attributes
 interface SummaryAttributes {
   id: number;
   interview_id: number;
-  overall_score: number;
-  competency_scores: CompetencyScore[];
-  strengths: string[];
-  improvements: string[];
-  recommendations: string[];
-  verdict: Verdict;
-  verdict_reasoning: string;
+  summary_data: InterviewSummary;
+  overall_rating: OverallRating;
   created_at: Date;
   updated_at: Date;
 }
@@ -23,13 +21,8 @@ interface SummaryCreationAttributes extends Optional<SummaryAttributes, 'id' | '
 class Summary extends Model<SummaryAttributes, SummaryCreationAttributes> implements SummaryAttributes {
   declare id: number;
   declare interview_id: number;
-  declare overall_score: number;
-  declare competency_scores: CompetencyScore[];
-  declare strengths: string[];
-  declare improvements: string[];
-  declare recommendations: string[];
-  declare verdict: Verdict;
-  declare verdict_reasoning: string;
+  declare summary_data: InterviewSummary;
+  declare overall_rating: OverallRating;
   declare created_at: Date;
   declare updated_at: Date;
 
@@ -54,36 +47,12 @@ export function initSummary() {
         },
         onDelete: 'CASCADE',
       },
-      overall_score: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        validate: {
-          min: 0,
-          max: 100,
-        },
-      },
-      competency_scores: {
+      summary_data: {
         type: DataTypes.JSONB,
         allowNull: false,
       },
-      strengths: {
-        type: DataTypes.JSONB,
-        allowNull: false,
-      },
-      improvements: {
-        type: DataTypes.JSONB,
-        allowNull: false,
-      },
-      recommendations: {
-        type: DataTypes.JSONB,
-        allowNull: false,
-      },
-      verdict: {
-        type: DataTypes.ENUM('ready', 'needs_preparation', 'not_ready'),
-        allowNull: false,
-      },
-      verdict_reasoning: {
-        type: DataTypes.TEXT,
+      overall_rating: {
+        type: DataTypes.ENUM('excellent', 'good', 'satisfactory', 'needs_improvement'),
         allowNull: false,
       },
       created_at: {
@@ -101,6 +70,7 @@ export function initSummary() {
       modelName: 'Summary',
       indexes: [
         { fields: ['interview_id'] },
+        { fields: ['overall_rating'] },
       ],
     }
   );

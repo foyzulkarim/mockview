@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { syncDatabase, Session, CV, JobDescription, MatchScore, Interview, Question, Answer, Summary } from '../src/lib/db/models';
 import { getSequelize } from '../src/lib/db/connection';
 import { config } from '../src/lib/config';
-import type { ParsedCVData, ParsedJDData, MatchBreakdown, QuestionPlan, InterviewState, AnswerEvaluation, CompetencyScore } from '../src/lib/types';
+import type { ParsedCVData, ParsedJDData, MatchBreakdown, QuestionPlan, InterviewState, AnswerEvaluation, InterviewSummary } from '../src/lib/types';
 
 // Sample parsed CV data
 const sampleParsedCV: ParsedCVData = {
@@ -164,13 +164,47 @@ const sampleEvaluation: AnswerEvaluation = {
   suggested_follow_up: undefined,
 };
 
-// Sample competency scores
-const sampleCompetencyScores: CompetencyScore[] = [
-  { name: 'Frontend', score: 85, assessment: 'excellent', feedback: 'Strong understanding of React patterns and state management.' },
-  { name: 'Backend', score: 78, assessment: 'good', feedback: 'Solid API design knowledge, could improve on database optimization.' },
-  { name: 'DevOps', score: 65, assessment: 'good', feedback: 'Basic Docker understanding, room to grow in cloud services.' },
-  { name: 'Soft Skills', score: 92, assessment: 'excellent', feedback: 'Exceptional communication and leadership examples.' },
-];
+// Sample interview summary
+const sampleInterviewSummaryData: InterviewSummary = {
+  overall_rating: 'good',
+  overall_score: 80,
+  executive_summary: 'Strong candidate demonstrating solid technical skills and excellent communication. Ready for senior engineering roles with minor areas for growth in DevOps.',
+  duration_minutes: 35,
+  questions_answered: 5,
+  competencies_covered: ['Frontend', 'Backend', 'DevOps', 'Soft Skills'],
+  strengths: [
+    { area: 'Frontend', evidence: 'Clear explanation of React state management patterns', impact: 'Essential for leading frontend architecture decisions' },
+    { area: 'Communication', evidence: 'Articulated complex concepts clearly', impact: 'Important for team collaboration' },
+  ],
+  areas_for_improvement: [
+    { area: 'DevOps', issue: 'Limited Kubernetes experience', suggestion: 'Take a hands-on Kubernetes course', resources: ['Kubernetes Official Tutorial'] },
+    { area: 'Metrics', issue: 'Could provide more specific numbers', suggestion: 'Prepare quantifiable achievements before interviews' },
+  ],
+  competency_scores: {
+    'Frontend': { score: 4, summary: 'Strong understanding of React patterns and state management.' },
+    'Backend': { score: 4, summary: 'Solid API design knowledge, could improve on database optimization.' },
+    'DevOps': { score: 3, summary: 'Basic Docker understanding, room to grow in cloud services.' },
+    'Soft Skills': { score: 5, summary: 'Exceptional communication and leadership examples.' },
+  },
+  communication_feedback: {
+    clarity: 4,
+    structure: 4,
+    confidence: 5,
+    examples_usage: 3,
+    notes: 'Excellent verbal communication with clear structure. Could include more specific metrics in examples.',
+  },
+  recommended_next_steps: [
+    'Review Kubernetes basics before the interview',
+    'Prepare 2-3 STAR format stories for leadership questions',
+    'Have specific numbers ready (performance improvements, team sizes, etc.)',
+  ],
+  sample_improved_answers: [
+    {
+      question: 'Tell me about a time when you had to optimize a slow API endpoint.',
+      improved_answer: 'At Tech Corp, our user search API was taking 3 seconds on average. I profiled the endpoint and found we were making N+1 queries. I implemented eager loading and added a Redis cache layer. Result: response time dropped to 200ms, a 93% improvement, and we could handle 5x more concurrent requests.',
+    },
+  ],
+};
 
 async function seed() {
   console.log('🌱 Starting database seed...\n');
@@ -292,26 +326,8 @@ async function seed() {
     console.log('📊 Creating Summary record...');
     await Summary.create({
       interview_id: interview.id,
-      overall_score: 80,
-      competency_scores: sampleCompetencyScores,
-      strengths: [
-        'Clear articulation of complex technical concepts',
-        'Strong React architecture understanding',
-        'Good use of concrete examples from experience',
-        'Demonstrated leadership capabilities',
-      ],
-      improvements: [
-        'Deepen Kubernetes/container orchestration knowledge',
-        'Practice explaining database scaling decisions',
-        'Prepare more specific metrics for project outcomes',
-      ],
-      recommendations: [
-        'Review Kubernetes basics before the interview',
-        'Prepare 2-3 STAR format stories for leadership questions',
-        'Have specific numbers ready (performance improvements, team sizes, etc.)',
-      ],
-      verdict: 'ready',
-      verdict_reasoning: 'The candidate demonstrates strong technical fundamentals across frontend and backend development. While there are some gaps in DevOps knowledge, the overall profile shows readiness for a senior engineering role. The communication skills and leadership experience are particularly strong assets.',
+      summary_data: sampleInterviewSummaryData,
+      overall_rating: sampleInterviewSummaryData.overall_rating,
     });
     console.log('✅ Summary created\n');
 

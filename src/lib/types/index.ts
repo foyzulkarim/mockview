@@ -155,21 +155,40 @@ export interface AnswerEvaluation {
 
 // ============ Summary Structures ============
 
-export interface CompetencyScore {
-  name: string;
-  score: number; // 0-100
-  assessment: 'excellent' | 'good' | 'needs_work' | 'poor';
-  feedback: string;
-}
-
 export interface InterviewSummary {
+  overall_rating: 'excellent' | 'good' | 'satisfactory' | 'needs_improvement';
   overall_score: number; // 0-100
-  competency_scores: CompetencyScore[];
-  strengths: string[];
-  improvements: string[];
-  recommendations: string[];
-  verdict: Verdict;
-  verdict_reasoning: string;
+  executive_summary: string;
+  duration_minutes: number;
+  questions_answered: number;
+  competencies_covered: string[];
+  strengths: Array<{
+    area: string;
+    evidence: string;
+    impact: string;
+  }>;
+  areas_for_improvement: Array<{
+    area: string;
+    issue: string;
+    suggestion: string;
+    resources?: string[];
+  }>;
+  competency_scores: Record<string, {
+    score: number; // 1-5
+    summary: string;
+  }>;
+  communication_feedback: {
+    clarity: number; // 1-5
+    structure: number; // 1-5
+    confidence: number; // 1-5
+    examples_usage: number; // 1-5
+    notes: string;
+  };
+  recommended_next_steps: string[];
+  sample_improved_answers?: Array<{
+    question: string;
+    improved_answer: string;
+  }>;
 }
 
 // ============ API Response Types ============
